@@ -14,6 +14,7 @@ using namespace std;
 // ----------------------------- Helpers -----------------------------
 inline size_t idx(size_t n, size_t i, size_t j) { return i * n + j; }
 
+// Function to convert seconds to ms using QueryPerformanceCounter
 double now_milliseconds() {
     static LARGE_INTEGER freq = []() {
         LARGE_INTEGER f;
@@ -25,10 +26,11 @@ double now_milliseconds() {
     return (double(t.QuadPart) / double(freq.QuadPart)) * 1000.0; // convert seconds to ms
 }
 
-
+// Aligned memory allocation
 double* aligned_alloc_double(size_t elems) { return static_cast<double*>(_aligned_malloc(elems * sizeof(double), 64)); }
 void aligned_free_double(double* ptr) { _aligned_free(ptr); }
 
+// Function to flush CPU cache
 void flush_cpu_cache(size_t bytes = 200ull * 1024 * 1024) {
     static vector<char> dummy;
     dummy.assign(bytes, 1);
@@ -37,6 +39,7 @@ void flush_cpu_cache(size_t bytes = 200ull * 1024 * 1024) {
     (void)s;
 }
 
+// Startup OpenMP threads
 void omp_warmup() {
 #pragma omp parallel
     {
@@ -69,6 +72,7 @@ void generateSPD_flat(double* A, size_t n, double shift = 100.0, uint64_t seed =
 }
 
 // ----------------------------- Cholesky algorithms -----------------------------
+// Sequential Cholesky decomposition
 bool cholesky_seq_flat(const double* A, double* L, size_t n) {
     for (size_t i = 0; i < n * n; ++i) L[i] = 0.0;
 
@@ -89,6 +93,7 @@ bool cholesky_seq_flat(const double* A, double* L, size_t n) {
     return true;
 }
 
+// Parallel Cholesky decomposition
 bool cholesky_par_flat(const double* A, double* L, size_t n) {
     for (size_t i = 0; i < n * n; ++i) L[i] = 0.0;
 
@@ -100,6 +105,7 @@ bool cholesky_par_flat(const double* A, double* L, size_t n) {
         double Lii = sqrt(diag);
         L[idx(n, i, i)] = Lii;
 
+		// Parallelize the computation of the i-th column below the diagonal, dynamic scheduling with chunk size 32
 #pragma omp parallel for schedule(dynamic, 32)
         for (long jj = (long)i + 1; jj < (long)n; ++jj) {
             size_t j = (size_t)jj;
@@ -111,6 +117,7 @@ bool cholesky_par_flat(const double* A, double* L, size_t n) {
     return true;
 }
 
+// Blocked Cholesky decomposition
 bool cholesky_blocked_flat(const double* A_in, double* L_out, size_t n, size_t b) {
     double* A = aligned_alloc_double(n * n);
     for (size_t i = 0; i < n * n; ++i) A[i] = A_in[i];
@@ -134,6 +141,7 @@ bool cholesky_blocked_flat(const double* A_in, double* L_out, size_t n, size_t b
 
         size_t start = k + kb;
         size_t rows = n - start;
+		// Update block column below the diagonal
 #pragma omp parallel for schedule(dynamic,8)
         for (long ii = 0; ii < (long)rows; ++ii) {
             size_t i = start + (size_t)ii;
@@ -144,6 +152,7 @@ bool cholesky_blocked_flat(const double* A_in, double* L_out, size_t n, size_t b
             }
         }
 
+		// Update trailing submatrix
 #pragma omp parallel for collapse(2) schedule(dynamic)
         for (long ii = (long)start; ii < (long)n; ++ii) {
             for (long jj = ii; jj < (long)n; ++jj) {
