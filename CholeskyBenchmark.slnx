@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="optmised_blockedChloesky/optmised_blockedChloesky.vcxproj" Id="bcf51eae-fc50-4069-ab6c-a554ee060876" />
+</Solution>
